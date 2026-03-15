@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Optional
 
 
 class MultiheadAttention(nn.Module):
@@ -61,9 +62,14 @@ class MultiheadAttention(nn.Module):
         self.scale_factor = 1.0 / math.sqrt(d_k + d_r) if d_r > 0 else 1.0 / math.sqrt(d_k)
 
     def rope(self, x, positions):
+        # 优化RoPE实现，支持不同维度的位置编码
+        if x.size(-1) != positions.size(-1):
+            positions = F.interpolate(positions.unsqueeze(0), size=x.size(-1), mode='linear').squeeze(0)
         return x * torch.cos(positions) + x * torch.sin(positions)
 
-    def forward(self, query, key, value, key_padding_mask=None, need_weights=False, positions=None):
+    def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor,
+               key_padding_mask: Optional[torch.Tensor] = None,
+               need_weights: bool = False, positions: Optional[torch.Tensor] = None) -> torch.Tensor:
         tgt_len, batch_size, _ = query.shape
         src_len = key.size(0)
 
@@ -89,7 +95,6 @@ class MultiheadAttention(nn.Module):
             v_head = self.v_head_proj[head](v_low)
 
             if self.d_r > 0 and positions is not None:
-                print(self.d_r)
                 q_rope = self.q_rope_proj[head](q_low)
                 q_rope = self.rope(q_rope, positions)
                 q_head = torch.cat([q_head, q_rope], dim=-1)
@@ -113,6 +118,8 @@ class MultiheadAttention(nn.Module):
             # 计算注意力权重
             attn_weights = F.softmax(attn_scores, dim=-1)
             attn_weights = self.attn_dropout(attn_weights)
+            # 添加注意力权重正则化
+            attn_weights = attn_weights / (attn_weights.sum(dim=-1, keepdim=True) + 1e-8)
 
             if need_weights:
                 attn_weights_list.append(attn_weights)
@@ -123,6 +130,12 @@ class MultiheadAttention(nn.Module):
 
         attn_output = torch.cat(attn_outputs, dim=-1)
         attn_output = attn_output.transpose(0, 1)
+
+        # 输出投影和dropout
+        attn_output = self.out_proj(attn_output)
+        attn_output = self.resid_dropout(attn_output)
+
+        return attn_output
 
         # 输出投影和dropout
         attn_output = self.out_proj(attn_output)
