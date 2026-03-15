@@ -104,3 +104,9 @@ class GCNConv(nn.Module):
             h = h + self.bias
 
         return F.relu(h)
+
+
+        if self.bias is not None:
+            h = h + self.bias
+
+        return F.relu(h)
