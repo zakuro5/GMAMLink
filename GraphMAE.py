@@ -38,7 +38,7 @@ class GraphMAE(nn.Module):
         self.criterion = self.setup_loss_fn()
 
     def encoding_mask_noise(self, x, adj, mask_rate=0.25):
-        num_nodes = 1120
+        num_nodes = x.size()[0]
         perm = torch.randperm(num_nodes, device=x.device)
         num_mask_nodes = int(mask_rate * num_nodes)
 
