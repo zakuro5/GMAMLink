@@ -66,3 +66,6 @@ After completion, the results will be saved in `results1.csv`. This file include
 - **Time (s)**: Training duration.
 - **RAM Usage (MB)**: System memory consumption.
 - **Peak GPU Memory (MB)**: Maximum GPU VRAM utilized.
+
+The attachment is in the main directory of this repository
+ 
